@@ -17,6 +17,7 @@ git clone git@github.com:ljj21/Bilibili_video_crawler.git
 cd Bilibili_video_crawler
 pip install -r requirements.txt
 ```
+By the way, you need to install [ffmpeg](https://www.ffmpeg.org/) to mix the video and audio files.
 ## Usage
 ### Config your cookies
 Before using this crawler, you need to config your cookies. You can get your cookies by logging in to Bilibili and pressing `F12` to open the developer tools. Then you need to create a file named `config.json` in the root directory of this repository. The content of `config.json` should be like this:
@@ -51,7 +52,7 @@ python bilibili_crawler.py -u 174881400
 ```
 The `-u` option specifies the `uid` of the user. The videos will be saved to `./download/<uid>` directory by default. You can change the directory by using the `-d` option.
 
-**The `-b` and `-u` options cannot be used at the same time.**
+**Of course, The `-b` and `-u` options cannot be used at the same time.**
 ## Attention
 + This repository is only for learning and communication. Please do not use it for commercial purposes.
 + If you think your behaviors maybe consume too much resources of Bilibili, please check the [Bilibili robots.txt](https://www.bilibili.com/robots.txt) file beforehand.
