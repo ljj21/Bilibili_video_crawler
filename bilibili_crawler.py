@@ -137,8 +137,6 @@ def get_all_video_audio_url(bvid: str, headers, quality_v: str, quality_a: str) 
     info["video_url"].discard(None), info["audio_url"].discard(None)
     return info
 
-
-
 def get_video_audio_url(bvid: str, headers, quality_v: str, quality_a: str) -> Dict:
     """
     Get the video and audio download url of a post whose bvid is `bvid`.
