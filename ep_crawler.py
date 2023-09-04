@@ -8,7 +8,8 @@ import logging
 import os
 import argparse
 
-from bilibili_crawler import set_headers, download_file
+from bilibili_crawler import set_headers
+from basic import download_file
 
 def get_eps_info(ep_id: str, num: int, headers, download_addr: str) -> None:
     """
