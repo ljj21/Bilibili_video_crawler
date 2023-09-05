@@ -1,15 +1,11 @@
 import requests
-from bs4 import BeautifulSoup as BS
 import json
-from typing import List, Dict
-import re
-import subprocess
+from typing import Dict
 import logging
 import os
-import argparse
 
-from bilibili_crawler import set_headers
-from basic import download_file
+from basic import download_and_mix, get_quality_str
+
 
 def get_eps_info(ep_id: str, num: int, headers, download_addr: str) -> None:
     """
@@ -19,57 +15,79 @@ def get_eps_info(ep_id: str, num: int, headers, download_addr: str) -> None:
         ep_id: The beginning id of the bangumi.
         num: The number of episodes to download.
     """
+    logging.info(f"Start Collecting {ep_id}'s episodes info.")
     url = f"https://api.bilibili.com/pgc/view/web/season?ep_id={ep_id}"
     resp = requests.get(url=url, headers=headers).json()
     episodes_info_list = resp['result']['episodes']
     ep_id_list = [str(ep['ep_id']) for ep in episodes_info_list]
     title_list = [ep['share_copy'] for ep in episodes_info_list]
     begin_index = ep_id_list.index(ep_id)
-    ep_id_list = ep_id_list[begin_index : begin_index + num]
-    title_list = title_list[begin_index : begin_index + num]
-    ep_list = [{"ep_id": ep_id, "title": title} for ep_id, title in zip(ep_id_list, title_list)]
-    with open(download_addr + "episode_list.json", "w", encoding="utf-8") as f:
+    ep_id_list = ep_id_list[begin_index: begin_index + num]
+    title_list = title_list[begin_index: begin_index + num]
+    ep_list = [{"id": ep_id, "title": title}
+               for ep_id, title in zip(ep_id_list, title_list)]
+    with open(download_addr + "video_list.json", "w", encoding="utf-8") as f:
         json.dump(ep_list, f)
+    logging.info(f"Finished Collecting {ep_id}'s episodes info.")
 
-def get_download_url(ep_id: str) -> str:
-    url = f"https://api.bilibili.com/pgc/player/web/playurl?ep_id={ep_id}"
-    resp = requests.get(url=url, headers=headers)
-    download_url = resp.json()['result']['durl'][0]['url']
-    return download_url
 
-def parse_arguments() -> argparse.Namespace:
+def get_download_url(ep_id: str, headers, video_id: str, audio_id: str, title: str) -> Dict:
+    url = f"https://api.bilibili.com/pgc/player/web/v2/playurl?fnval=4048&fourk=1&ep_id={ep_id}"
+    resp = requests.get(url=url, headers=headers).json()
+    info = dict()
+    video_info = resp['result']['video_info']['dash']['video']
+    for video in video_info:
+        if video['baseUrl'].find(video_id + ".m4s") != -1:
+            info['video_url'] = video['baseUrl']
+            break
+    audio_info = resp['result']['video_info']['dash']['audio']
+    for audio in audio_info:
+        if audio['baseUrl'].find(audio_id + ".m4s") != -1:
+            info['audio_url'] = audio['baseUrl']
+            break
+    info["title"] = title
+    return info
+
+
+def crawl_episodes(ep_id: str, num: int, headers, download_addr: str, quality_v: str, quality_a: str) -> None:
     """
-    Parse the arguments.
-    """
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-e", "--epid", type=str, help="The uid of the user.")
-    parser.add_argument("-n", "--num", type=int, default=1, help="The number of episodes to download.")
-    parser.add_argument("-v", "--quality_v", type=str,
-                        default="720p", help="The quality of video. The options are 1080p, 720p, 480p, 360p.")
-    parser.add_argument("-a", "--quality_a", type=str,
-                        default="132k", help="The quality of audio. The options are 64k, 132k, 192k.")
-    parser.add_argument("-d", "--download_addr", type=str, default="./download/",
-                        help="The root address of download files.")
-    args = parser.parse_args()
-    if args.download_addr[-1] != "/":
-        args.download_addr += "/"
-    return args
+    Crawl the episodes of a bangumi and download them.
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s - %(levelname)s - %(message)s')
-    headers = set_headers()
-    args = parse_arguments()
-    if args.epid:
-        if not os.path.exists(args.download_addr):
-            os.makedirs(args.download_addr)
-        get_eps_info(args.epid, args.num, headers, args.download_addr)
-        with open(args.download_addr + "episode_list.json", "r", encoding="utf-8") as f:
-            ep_list = json.load(f)
-        for ep in ep_list:
-            download_url = get_download_url(ep['ep_id'])
-            logging.info(f"Downloading {ep['title']}...")
-            download_file(download_url, ep['title'], ".mp4", headers, args.download_addr)
+    Args:
+        ep_id: The beginning id of the bangumi.
+        num: The number of episodes to download.
+    """
+    download_addr = download_addr + ep_id + "/"
+    if not os.path.exists(download_addr):
+        os.makedirs(download_addr)
+    get_eps_info(ep_id, num, headers, download_addr)
+    quality_v, quality_a = get_quality_str(quality_v, quality_a)
+    with open(download_addr + "video_list.json", "r", encoding="utf-8") as f:
+        ep_list = json.load(f)
+    total_num = len(ep_list)
+    if total_num == 0:
+        logging.warning(f"Bangumi {ep_id} has no episode.")
+        return
+    logging.info(f"Total number of episodes: {total_num}")
+    unsuccessful_list = []
+    for index, ep in enumerate(ep_list, start=1):
+        logging.info(f"Downloading {index}/{total_num}.")
+        try:
+            info = get_download_url(ep['id'], headers, quality_v, quality_a, ep['title'])
+            download_and_mix(info, headers, download_addr)
+            logging.info(f"Finished {index}/{total_num}.")
+        except Exception as e:
+            if isinstance(e, KeyboardInterrupt):
+                logging.error(
+                    "Keyboard interrupt detected. The program will exit.")
+                break
+            else:
+                logging.warning(
+                    f"Failed to download {index}/{total_num}.")
+                unsuccessful_list.append(index - 1)
+    if len(unsuccessful_list) > 0:
+        logging.warning(
+            f"Failed to crawl {len(unsuccessful_list)}/{total_num} video(s).")
+        logging.warning(f"Unsuccessful list: {unsuccessful_list}")
     else:
-        logging.error("Please specify the uid or bvid!")
-   
+        logging.info(f"All {total_num} video(s) have been downloaded!")
