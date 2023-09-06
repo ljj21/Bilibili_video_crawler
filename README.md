@@ -1,6 +1,8 @@
 # Bilibili_video_crawler
 This is a crawler for Bilibili videos. It can download videos from Bilibili and save them to your local disk. 
+
 Given a user `uid`, it can download all the post videos of this user. Given a video `bvid`, it can download this video. Given a episode `epid` and `num`, it can download `num` videos beginning at this episode.
+
 The quality of videos or audios can be specified.
 ## Requirements
 You need to install the following packages:
