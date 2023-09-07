@@ -14,8 +14,8 @@ lxml
 They have already been listed in the requirements.txt file, so you can install them by running the following command:
 
 ```bash
-conda create -n bilibili_crawler python=3.10
-conda activate bilibili_crawler
+conda create -n crawler python=3.10
+conda activate crawler
 git clone git@github.com:ljj21/Bilibili_video_crawler.git
 cd Bilibili_video_crawler
 pip install -r requirements.txt
@@ -26,7 +26,7 @@ By the way, you need to install **[ffmpeg](https://www.ffmpeg.org/)** to mix the
 Before using this crawler, you need to config your cookies. You can get your cookies by logging in to Bilibili and pressing `F12` to open the developer tools. Then you need to create a file named `config.json` in the root directory of this repository. The content of `config.json` should be like this:
 ```json
 {
-    "cookies": "<your cookies>"
+    "cookie": "<your cookie>"
 }
 ```
 ### Download a video by its `bvid`
